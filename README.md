@@ -74,13 +74,10 @@ empleados.csv
 ## Configuracion en Power BI
 
 1. Abre el `.pbix` en Power BI Desktop.
-2. Crea el parametro `SharePointSite` con la URL del sitio SharePoint/OneDrive.
-3. Crea el parametro `BaseURL` con la URL HTTPS donde quedan los CSVs.
-4. Asegurate de que `BaseURL` termine en `/`.
-5. Reemplaza las consultas con los archivos de `power_query/`.
-6. Publica el reporte y configura la actualizacion programada.
+2. Borra las consultas y parametros viejos de la API anterior.
+3. Reemplaza las consultas con los archivos de `power_query/`.
+4. Publica el reporte y configura la actualizacion programada.
 
-Los parametros deben llamarse exactamente `SharePointSite` y `BaseURL`. Si quedan con otro nombre, por ejemplo `Token`, las consultas no van a usar la URL correcta.
-Las consultas usan `SharePoint.Files`, por eso en Power BI Service las credenciales deben configurarse contra el sitio SharePoint/OneDrive como `Organizational account`, sin gateway local.
+Las consultas leen URLs HTTPS directas de SharePoint/OneDrive con `Web.Contents`. En Power BI Service las credenciales deben configurarse como `Organizational account`, sin gateway local.
 
 No subas `.env` ni secretos reales. Si algun secreto real ya se compartio o se subio antes, rota ese secreto en Azure/API y actualizalo en GitHub Actions.

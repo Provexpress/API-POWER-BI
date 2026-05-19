@@ -2,16 +2,8 @@
 // Lee cotizaciones por estado desde el CSV publicado por el ETL.
 
 let
-    FolderUrl = if Text.EndsWith(BaseURL, "/") then BaseURL else BaseURL & "/",
-    Files = SharePoint.Files(SharePointSite, [ApiVersion = 15]),
-    File = Table.SelectRows(
-        Files,
-        each [Name] = "cotizaciones_estados.csv"
-            and Text.Lower(Uri.UnescapeDataString([Folder Path])) = Text.Lower(Uri.UnescapeDataString(FolderUrl))
-    ),
-    FileContent = if Table.IsEmpty(File) then error "No se encontro cotizaciones_estados.csv en " & FolderUrl else File{0}[Content],
     Source = Csv.Document(
-        FileContent,
+        Web.Contents("https://provexpress-my.sharepoint.com/personal/especialista_preventa_provexpress_com_co/Documents/PowerBI/Proveexpress/cotizaciones_estados.csv"),
         [Delimiter = ",", Encoding = 65001, QuoteStyle = QuoteStyle.Csv]
     ),
     #"Promoted Headers" = Table.PromoteHeaders(Source, [PromoteAllScalars = true]),
