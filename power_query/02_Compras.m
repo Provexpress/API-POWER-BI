@@ -18,7 +18,7 @@ let
         {"Marca", type text},
         {"Numero", Int64.Type},
         {"Unidades", Int64.Type},
-        {"Valor_Mercancia", type number}
+        {"Valor_Mercancia", Currency.Type}
     })
 in
     #"Changed Type"

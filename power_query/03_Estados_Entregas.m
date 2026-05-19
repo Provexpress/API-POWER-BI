@@ -9,7 +9,7 @@ let
     #"Promoted Headers" = Table.PromoteHeaders(Source, [PromoteAllScalars = true]),
     #"Changed Type" = Table.TransformColumnTypes(#"Promoted Headers", {
         {"Numero", Int64.Type},
-        {"Valor_Mercancia", type number},
+        {"Valor_Mercancia", Currency.Type},
         {"Estado", type text},
         {"Empresa", type text},
         {"Identificacion", type text},

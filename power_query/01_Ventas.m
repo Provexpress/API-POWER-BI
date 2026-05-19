@@ -28,7 +28,7 @@ let
         {"Categoria", type text},
         {"SubCategoria", type text},
         {"Marca", type text},
-        {"Valor_Mercancia", type number},
+        {"Valor_Mercancia", Currency.Type},
         {"Unidades", Int64.Type}
     }),
     #"Renamed Columns" = Table.RenameColumns(#"Changed Type", {
