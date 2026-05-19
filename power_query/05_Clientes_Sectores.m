@@ -3,8 +3,7 @@
 
 let
     FolderUrl = if Text.EndsWith(BaseURL, "/") then BaseURL else BaseURL & "/",
-    SiteUrl = Text.Combine(List.FirstN(Text.Split(Text.TrimEnd(FolderUrl, "/"), "/"), 5), "/"),
-    Files = SharePoint.Files(SiteUrl, [ApiVersion = 15]),
+    Files = SharePoint.Files(SharePointSite, [ApiVersion = 15]),
     File = Table.SelectRows(
         Files,
         each [Name] = "clientes_sectores.csv"
