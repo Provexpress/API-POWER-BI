@@ -3,7 +3,7 @@
 
 let
     Source = Csv.Document(
-        Web.Contents(BaseURL & "cotizaciones_estados.csv"),
+        Web.Contents(BaseURL, [RelativePath = "cotizaciones_estados.csv"]),
         [Delimiter = ",", Encoding = 65001, QuoteStyle = QuoteStyle.Csv]
     ),
     #"Promoted Headers" = Table.PromoteHeaders(Source, [PromoteAllScalars = true]),

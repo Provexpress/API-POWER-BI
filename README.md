@@ -79,4 +79,6 @@ empleados.csv
 4. Reemplaza las consultas con los archivos de `power_query/`.
 5. Publica el reporte y configura la actualizacion programada.
 
+El parametro debe llamarse exactamente `BaseURL`. Si queda con otro nombre, por ejemplo `Token`, las consultas no van a usar la URL correcta.
+
 No subas `.env` ni secretos reales. Si algun secreto real ya se compartio o se subio antes, rota ese secreto en Azure/API y actualizalo en GitHub Actions.
