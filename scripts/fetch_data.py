@@ -8,7 +8,9 @@ from __future__ import annotations
 
 import csv
 import os
+import re
 import sys
+import unicodedata
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -23,6 +25,21 @@ ENDPOINTS = {
     "cotizaciones_estados": "/consultas/api/consultaCotizacionesEstadosDashboardPBI",
     "clientes_sectores": "/consultas/api/consultaClientesSectoresDashboardPBI",
     "empleados": "/consultas/api/consultaPersonalPBI",
+}
+
+COLUMN_ALIASES = {
+    "ventas": {
+        "Fecha_Emision": (
+            "Fecha_Emision",
+            "Fecha Emision",
+            "Fecha_Emisión",
+            "Fecha Emisión",
+            "FechaEmision",
+            "Fecha",
+            "fecha_emision",
+            "fechaEmision",
+        ),
+    },
 }
 
 
@@ -120,6 +137,56 @@ def normalize_records(payload: Any) -> list[dict[str, Any]]:
     return records
 
 
+def comparable_key(value: str) -> str:
+    normalized = unicodedata.normalize("NFKD", value)
+    without_accents = "".join(char for char in normalized if not unicodedata.combining(char))
+    return re.sub(r"[^a-z0-9]", "", without_accents.lower())
+
+
+def endpoint_aliases(endpoint_name: str) -> dict[str, str]:
+    aliases: dict[str, str] = {}
+    for canonical, names in COLUMN_ALIASES.get(endpoint_name, {}).items():
+        for name in names:
+            aliases[comparable_key(name)] = canonical
+    return aliases
+
+
+def normalize_record_columns(endpoint_name: str, records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    aliases = endpoint_aliases(endpoint_name)
+    if not aliases:
+        return records
+
+    normalized_records: list[dict[str, Any]] = []
+    for record in records:
+        normalized: dict[str, Any] = {}
+        for key, value in record.items():
+            canonical = aliases.get(comparable_key(str(key)), key)
+            if canonical not in normalized or normalized[canonical] in (None, ""):
+                normalized[canonical] = value
+        if endpoint_name == "ventas" and "Fecha_Emision" in normalized:
+            normalized["Fecha_Emision"] = date_only(normalized["Fecha_Emision"])
+        normalized_records.append(normalized)
+
+    return normalized_records
+
+
+def date_only(value: Any) -> Any:
+    if value is None:
+        return value
+
+    text = str(value).strip()
+    if not text:
+        return value
+
+    if "T" in text:
+        return text.split("T", 1)[0]
+
+    if " " in text and len(text) >= 10:
+        return text.split(" ", 1)[0]
+
+    return value
+
+
 def fieldnames_for(records: list[dict[str, Any]]) -> list[str]:
     fieldnames: list[str] = []
     seen: set[str] = set()
@@ -183,7 +250,7 @@ def main() -> int:
             print(f"--- {name.upper()} ---")
             try:
                 payload = fetch_endpoint(session, api_base, token, path)
-                records = normalize_records(payload)
+                records = normalize_record_columns(name, normalize_records(payload))
                 total += save_csv(records, output_dir / f"{name}.csv")
             except Exception as exc:
                 print(f"  ERROR en {name}: {exc}")
