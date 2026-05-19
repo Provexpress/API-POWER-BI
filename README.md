@@ -2,13 +2,11 @@
 
 Este proyecto descarga datos de la API externa, genera CSVs y los sube a SharePoint para que Power BI Service pueda refrescar desde HTTPS sin gateway.
 
-## Arquitectura recomendada
+## Arquitectura
 
 ```text
 API externa -> GitHub Actions -> SharePoint -> Power BI Service
 ```
-
-El repo tambien conserva el proxy HTTPS para Vercel que ya existia en `api/`, `lib/`, `package.json` y `vercel.json`. Ese camino puede seguir sirviendo como respaldo, pero la correccion principal queda en el flujo de GitHub Actions hacia SharePoint.
 
 ## Estructura
 
@@ -17,8 +15,6 @@ El repo tambien conserva el proxy HTTPS para Vercel que ya existia en `api/`, `l
 scripts/fetch_data.py                # Descarga datos de la API
 scripts/upload_sharepoint.py         # Sube CSVs a SharePoint
 power_query/                         # Consultas M para leer los CSVs
-api/                                 # Proxy Vercel existente
-lib/                                 # Utilidad compartida del proxy Vercel
 .env.example                         # Plantilla local, sin secretos reales
 requirements.txt                     # Dependencias Python del workflow
 ```
@@ -82,16 +78,5 @@ empleados.csv
 3. Asegurate de que `BaseURL` termine en `/`.
 4. Reemplaza las consultas con los archivos de `power_query/`.
 5. Publica el reporte y configura la actualizacion programada.
-
-## Proxy Vercel existente
-
-Para seguir usando el proxy Vercel, configura en Vercel:
-
-| Variable | Uso |
-| --- | --- |
-| `API_BASE_URL` | URL base de la API externa |
-| `API_USERNAME` | Usuario de la API |
-| `API_PASSWORD` | Password de la API |
-| `PROXY_API_KEY` | Clave opcional para proteger los endpoints |
 
 No subas `.env` ni secretos reales. Si algun secreto real ya se compartio o se subio antes, rota ese secreto en Azure/API y actualizalo en GitHub Actions.
