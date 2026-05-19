@@ -41,6 +41,7 @@ jobs:
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          SHAREPOINT_FOLDER_URL: ${{ secrets.SHAREPOINT_FOLDER_URL }}
           SHAREPOINT_SITE_URL: ${{ secrets.SHAREPOINT_SITE_URL }}
           SHAREPOINT_SITE_ID: ${{ secrets.SHAREPOINT_SITE_ID }}
           SHAREPOINT_SITE: ${{ secrets.SHAREPOINT_SITE }}
@@ -54,8 +55,8 @@ jobs:
             fi
           done
 
-          if [ -z "${SHAREPOINT_SITE_URL}${SHAREPOINT_SITE_ID}${SHAREPOINT_SITE}${SHAREPOINT_DRIVE_ID}" ]; then
-            echo "::error title=Missing SharePoint target::Configure SHAREPOINT_SITE_URL, SHAREPOINT_SITE_ID, SHAREPOINT_SITE, or SHAREPOINT_DRIVE_ID"
+          if [ -z "${SHAREPOINT_FOLDER_URL}${SHAREPOINT_SITE_URL}${SHAREPOINT_SITE_ID}${SHAREPOINT_SITE}${SHAREPOINT_DRIVE_ID}" ]; then
+            echo "::error title=Missing SharePoint target::Configure SHAREPOINT_FOLDER_URL, SHAREPOINT_SITE_URL, SHAREPOINT_SITE_ID, SHAREPOINT_SITE, or SHAREPOINT_DRIVE_ID"
             missing=1
           fi
 
@@ -74,11 +75,12 @@ jobs:
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          SHAREPOINT_FOLDER_URL: ${{ secrets.SHAREPOINT_FOLDER_URL }}
           SHAREPOINT_SITE_URL: ${{ secrets.SHAREPOINT_SITE_URL }}
           SHAREPOINT_SITE_ID: ${{ secrets.SHAREPOINT_SITE_ID }}
           SHAREPOINT_SITE: ${{ secrets.SHAREPOINT_SITE }}
           SHAREPOINT_DRIVE_ID: ${{ secrets.SHAREPOINT_DRIVE_ID }}
-          SHAREPOINT_FOLDER: ${{ secrets.SHAREPOINT_FOLDER || 'PowerBI/Proveexpress' }}
+          SHAREPOINT_FOLDER: ${{ secrets.SHAREPOINT_FOLDER }}
           OUTPUT_DIR: data
         run: python scripts/upload_sharepoint.py
 

@@ -31,22 +31,22 @@ Configura estos valores en `Settings > Secrets and variables > Actions > New rep
 | `AZURE_TENANT_ID` | Tenant ID de Azure AD |
 | `AZURE_CLIENT_ID` | Client ID de la App Registration |
 | `AZURE_CLIENT_SECRET` | Client secret de la App Registration |
-| `SHAREPOINT_FOLDER` | Opcional. Carpeta destino; por defecto `PowerBI/Proveexpress` |
 
-Para localizar el sitio de SharePoint, configura una de estas opciones:
+Para localizar la carpeta destino de SharePoint/OneDrive, configura una de estas opciones:
 
 | Secret | Recomendacion |
 | --- | --- |
+| `SHAREPOINT_FOLDER_URL` | Recomendado para una carpeta compartida. Pega la URL completa de la carpeta |
 | `SHAREPOINT_SITE_URL` | Recomendado. Ejemplo: `https://empresa.sharepoint.com/sites/NombreSitio` |
 | `SHAREPOINT_SITE_ID` | Alternativa si ya tienes el ID exacto del sitio |
 | `SHAREPOINT_SITE` | Alternativa por busqueda o hostname |
 | `SHAREPOINT_DRIVE_ID` | Alternativa si ya tienes el ID exacto del drive/biblioteca destino |
 
-Si usas `SHAREPOINT_DRIVE_ID`, el script sube directamente a ese drive y no necesita resolver el sitio.
+`SHAREPOINT_FOLDER` es opcional. Si usas `SHAREPOINT_FOLDER_URL`, se ignora porque la URL ya apunta a la carpeta destino. Si no usas `SHAREPOINT_FOLDER_URL`, sirve como ruta dentro del drive; si se deja vacio, el script usa `PowerBI/Proveexpress`.
 
 ## Permisos de Azure
 
-La App Registration debe tener permisos de Microsoft Graph para escribir en el sitio o drive destino. Segun tu politica de seguridad, usa permisos de aplicacion como `Sites.Selected` con asignacion al sitio especifico, o `Sites.ReadWrite.All` si la organizacion lo permite.
+La App Registration debe tener permisos de Microsoft Graph para escribir en el sitio o drive destino. Segun tu politica de seguridad, usa permisos de aplicacion como `Sites.Selected` con asignacion al sitio especifico, `Sites.ReadWrite.All`, o `Files.ReadWrite.All` cuando el destino sea una carpeta de OneDrive empresarial compartida.
 
 ## Ejecucion del Action
 

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import sys
+import base64
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote, urlparse
@@ -56,6 +57,33 @@ def graph_request(
     headers = kwargs.pop("headers", {})
     headers["Authorization"] = f"Bearer {token}"
     return session.request(method, url, headers=headers, timeout=120, **kwargs)
+
+
+def share_url_to_id(folder_url: str) -> str:
+    encoded = base64.urlsafe_b64encode(folder_url.encode("utf-8")).decode("ascii")
+    return f"u!{encoded.rstrip('=')}"
+
+
+def resolve_shared_folder(
+    session: requests.Session,
+    token: str,
+    folder_url: str,
+) -> tuple[str, str]:
+    share_id = share_url_to_id(folder_url)
+    response = graph_request(session, "GET", f"{GRAPH_BASE}/shares/{share_id}/driveItem", token)
+    response.raise_for_status()
+    item = response.json()
+
+    if "folder" not in item:
+        raise RuntimeError("SHAREPOINT_FOLDER_URL debe apuntar a una carpeta, no a un archivo.")
+
+    parent_reference = item.get("parentReference", {})
+    drive_id = parent_reference.get("driveId")
+    item_id = item.get("id")
+    if not drive_id or not item_id:
+        raise RuntimeError("No se pudo resolver driveId/itemId desde SHAREPOINT_FOLDER_URL.")
+
+    return drive_id, item_id
 
 
 def parse_site_url(site_url: str) -> tuple[str, str]:
@@ -132,35 +160,44 @@ def graph_path(path: str) -> str:
     return quote(path.strip("/"), safe="/")
 
 
-def drive_item_exists(session: requests.Session, token: str, drive_id: str, path: str) -> bool:
-    response = graph_request(
-        session,
-        "GET",
-        f"{GRAPH_BASE}/drives/{drive_id}/root:/{graph_path(path)}",
-        token,
-    )
-    if response.status_code == 404:
-        return False
+def get_drive_root_id(session: requests.Session, token: str, drive_id: str) -> str:
+    response = graph_request(session, "GET", f"{GRAPH_BASE}/drives/{drive_id}/root", token)
     response.raise_for_status()
-    return True
+    return response.json()["id"]
 
 
-def create_folder(
+def find_child_folder(
     session: requests.Session,
     token: str,
     drive_id: str,
-    parent_path: str,
+    parent_id: str,
     folder_name: str,
-) -> None:
-    if parent_path:
-        url = f"{GRAPH_BASE}/drives/{drive_id}/root:/{graph_path(parent_path)}:/children"
-    else:
-        url = f"{GRAPH_BASE}/drives/{drive_id}/root/children"
+) -> str | None:
+    url = f"{GRAPH_BASE}/drives/{drive_id}/items/{parent_id}/children"
 
+    while url:
+        response = graph_request(session, "GET", url, token)
+        response.raise_for_status()
+        payload = response.json()
+        for child in payload.get("value", []):
+            if child.get("name") == folder_name and "folder" in child:
+                return child["id"]
+        url = payload.get("@odata.nextLink")
+
+    return None
+
+
+def create_child_folder(
+    session: requests.Session,
+    token: str,
+    drive_id: str,
+    parent_id: str,
+    folder_name: str,
+) -> str:
     response = graph_request(
         session,
         "POST",
-        url,
+        f"{GRAPH_BASE}/drives/{drive_id}/items/{parent_id}/children",
         token,
         json={
             "name": folder_name,
@@ -169,32 +206,46 @@ def create_folder(
         },
     )
 
-    if response.status_code not in (200, 201, 409):
-        response.raise_for_status()
+    if response.status_code == 409:
+        existing_id = find_child_folder(session, token, drive_id, parent_id, folder_name)
+        if existing_id:
+            return existing_id
+
+    response.raise_for_status()
+    return response.json()["id"]
 
 
-def ensure_folder_path(session: requests.Session, token: str, drive_id: str, folder_path: str) -> None:
+def ensure_folder_path(
+    session: requests.Session,
+    token: str,
+    drive_id: str,
+    parent_id: str,
+    folder_path: str,
+) -> str:
     parts = [part for part in folder_path.strip("/").split("/") if part]
-    built: list[str] = []
+    current_id = parent_id
 
     for part in parts:
-        candidate = "/".join([*built, part])
-        if not drive_item_exists(session, token, drive_id, candidate):
-            create_folder(session, token, drive_id, "/".join(built), part)
-        built.append(part)
+        child_id = find_child_folder(session, token, drive_id, current_id, part)
+        if not child_id:
+            child_id = create_child_folder(session, token, drive_id, current_id, part)
+        current_id = child_id
+
+    return current_id
 
 
 def upload_file(
     session: requests.Session,
     token: str,
     drive_id: str,
+    folder_id: str,
     local_path: Path,
-    remote_path: str,
 ) -> None:
     file_size = local_path.stat().st_size
+    remote_filename = quote(local_path.name, safe="")
 
     if file_size < 4 * 1024 * 1024:
-        url = f"{GRAPH_BASE}/drives/{drive_id}/root:/{graph_path(remote_path)}:/content"
+        url = f"{GRAPH_BASE}/drives/{drive_id}/items/{folder_id}:/{remote_filename}:/content"
         with local_path.open("rb") as file:
             response = graph_request(
                 session,
@@ -206,7 +257,7 @@ def upload_file(
             )
         response.raise_for_status()
     else:
-        url = f"{GRAPH_BASE}/drives/{drive_id}/root:/{graph_path(remote_path)}:/createUploadSession"
+        url = f"{GRAPH_BASE}/drives/{drive_id}/items/{folder_id}:/{remote_filename}:/createUploadSession"
         session_response = graph_request(
             session,
             "POST",
@@ -252,7 +303,12 @@ def csv_files(data_dir: Path) -> list[Path]:
 
 def main() -> int:
     data_dir = Path(os.environ.get("OUTPUT_DIR", "data"))
-    folder_path = os.environ.get("SHAREPOINT_FOLDER", "PowerBI/Proveexpress").strip("/")
+    folder_url = os.environ.get("SHAREPOINT_FOLDER_URL", "").strip()
+    folder_path = os.environ.get("SHAREPOINT_FOLDER", "").strip("/")
+    if folder_url:
+        folder_path = ""
+    elif not folder_path:
+        folder_path = "PowerBI/Proveexpress"
 
     try:
         files = csv_files(data_dir)
@@ -260,19 +316,29 @@ def main() -> int:
             print("Obteniendo token de Graph API...")
             token = get_graph_token(session)
 
-            print("Resolviendo drive de SharePoint...")
-            if os.environ.get("SHAREPOINT_DRIVE_ID", "").strip():
+            if folder_url:
+                print("Resolviendo carpeta destino desde SHAREPOINT_FOLDER_URL...")
+                drive_id, base_folder_id = resolve_shared_folder(session, token, folder_url)
+            elif os.environ.get("SHAREPOINT_DRIVE_ID", "").strip():
+                print("Resolviendo drive de SharePoint...")
                 drive_id = resolve_drive_id(session, token)
+                base_folder_id = get_drive_root_id(session, token, drive_id)
             else:
+                print("Resolviendo sitio y drive de SharePoint...")
                 site_id = resolve_site_id(session, token)
                 drive_id = resolve_drive_id(session, token, site_id)
+                base_folder_id = get_drive_root_id(session, token, drive_id)
 
-            print(f"Verificando carpeta SharePoint/{folder_path}/...")
-            ensure_folder_path(session, token, drive_id, folder_path)
+            if folder_path:
+                print(f"Verificando carpeta destino: {folder_path}/...")
+                target_folder_id = ensure_folder_path(session, token, drive_id, base_folder_id, folder_path)
+            else:
+                print("Usando la carpeta compartida como destino.")
+                target_folder_id = base_folder_id
 
-            print(f"Subiendo archivos a SharePoint/{folder_path}/...\n")
+            print("Subiendo archivos a SharePoint...\n")
             for local_path in files:
-                upload_file(session, token, drive_id, local_path, f"{folder_path}/{local_path.name}")
+                upload_file(session, token, drive_id, target_folder_id, local_path)
     except Exception as exc:
         print(f"ERROR subiendo a SharePoint: {exc}")
         return 1
